@@ -3,6 +3,7 @@ import Foundation
 class ReingoldTilford {
     private let verticalSpacing: CGFloat = 150
     private let horizontalSpacing: CGFloat = 120
+    private var enableEdgeLengthOptimization = true
     
     func layout(nodes: inout [GraphNode], nodeMap: [String: GraphNode]) {
         guard !nodes.isEmpty else { return }
@@ -12,6 +13,11 @@ class ReingoldTilford {
         
         // Build tree structure
         buildTree(nodes: &nodes, nodeMap: nodeMap)
+        
+        // Optional: Optimize child order to minimize edge lengths
+        if enableEdgeLengthOptimization {
+            optimizeChildOrder(nodes: &nodes, nodeMap: nodeMap)
+        }
         
         // First pass: calculate preliminary positions
         firstPass(node: root, nodes: &nodes, nodeMap: nodeMap)
@@ -25,7 +31,6 @@ class ReingoldTilford {
     
     private func buildTree(nodes: inout [GraphNode], nodeMap: [String: GraphNode]) {
         var depthMap: [String: Int] = [:]
-        var indexMap: [String: Int] = [:]
         
         // Calculate depths
         func calculateDepth(_ childId: String) -> Int {
@@ -64,8 +69,46 @@ class ReingoldTilford {
         }
     }
     
+    private func optimizeChildOrder(nodes: inout [GraphNode], nodeMap: [String: GraphNode]) {
+        // Group nodes by parent
+        let childrenByParent = Dictionary(grouping: nodes, by: { $0.parentId })
+        
+        // For each parent with multiple children, optimize their order
+        for (parentId, children) in childrenByParent where children.count > 1, parentId != nil {
+            // Calculate subtree sizes for each child
+            var childOrder: [(child: GraphNode, subtreeSize: Int)] = []
+            
+            for child in children {
+                let subtreeSize = calculateSubtreeSize(child: child, nodes: nodes)
+                childOrder.append((child: child, subtreeSize: subtreeSize))
+            }
+            
+            // Sort children by subtree size (larger subtrees closer to center minimizes edge length)
+            childOrder.sort { $0.subtreeSize > $1.subtreeSize }
+            
+            // Update treeIndex based on optimized order
+            for (index, item) in childOrder.enumerated() {
+                if let nodeIndex = nodes.firstIndex(of: item.child) {
+                    nodes[nodeIndex].treeIndex = index
+                }
+            }
+        }
+    }
+    
+    private func calculateSubtreeSize(child: GraphNode, nodes: [GraphNode]) -> Int {
+        var size = 1
+        let descendants = nodes.filter { $0.parentId == child.childId }
+        for descendant in descendants {
+            size += calculateSubtreeSize(child: descendant, nodes: nodes)
+        }
+        return size
+    }
+    
     private func firstPass(node: GraphNode, nodes: inout [GraphNode], nodeMap: [String: GraphNode]) {
-        let children = nodes.filter { $0.parentId == node.childId }
+        var children = nodes.filter { $0.parentId == node.childId }
+        
+        // Sort children by treeIndex to maintain optimized order
+        children.sort { $0.treeIndex < $1.treeIndex }
         
         if children.isEmpty {
             // Leaf node
@@ -95,7 +138,9 @@ class ReingoldTilford {
             nodes[index].preliminaryX = nodes[index].preliminaryX + modifier
         }
         
-        let children = nodes.filter { $0.parentId == node.childId }
+        var children = nodes.filter { $0.parentId == node.childId }
+        children.sort { $0.treeIndex < $1.treeIndex }
+        
         for child in children {
             secondPass(node: child, modifier: modifier + node.preliminaryX, nodes: &nodes, nodeMap: nodeMap)
         }
@@ -115,5 +160,10 @@ class ReingoldTilford {
                 nodes[i].position = pos
             }
         }
+    }
+    
+    // Optional: Toggle edge length optimization
+    func setEdgeLengthOptimization(_ enabled: Bool) {
+        enableEdgeLengthOptimization = enabled
     }
 }
