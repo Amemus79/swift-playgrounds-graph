@@ -15,6 +15,102 @@ struct NodeFormView: View {
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
             
+            #if os(macOS)
+            VStack(spacing: 12) {
+                Text("Add Node")
+                    .font(.headline)
+                
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Child ID:")
+                            .frame(width: 100, alignment: .leading)
+                        TextField("e.g., Node1", text: $childId)
+                            .disabled(isPaused)
+                    }
+                    
+                    HStack {
+                        Text("Parent ID:")
+                            .frame(width: 100, alignment: .leading)
+                        TextField("Leave empty for root", text: $parentId)
+                            .disabled(isPaused)
+                    }
+                    
+                    HStack {
+                        Text("Value 1:")
+                            .frame(width: 100, alignment: .leading)
+                        TextField("Display value 1", text: $value1)
+                            .disabled(isPaused)
+                    }
+                    
+                    HStack {
+                        Text("Value 2:")
+                            .frame(width: 100, alignment: .leading)
+                        TextField("Display value 2", text: $value2)
+                            .disabled(isPaused)
+                    }
+                }
+                .font(.caption)
+                
+                if showSuccess {
+                    VStack(spacing: 4) {
+                        Text("✓ Node added successfully!")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                            .fontWeight(.semibold)
+                        
+                        if isPaused {
+                            Text("Paused - Graph recalculating...")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
+                
+                HStack(spacing: 12) {
+                    Button("Cancel") {
+                        resetForm()
+                        isPresented = false
+                    }
+                    .foregroundStyle(.red)
+                    .disabled(isPaused)
+                    
+                    Spacer()
+                    
+                    if isPaused {
+                        Button("Continue") {
+                            resetForm()
+                            isPaused = false
+                            showSuccess = false
+                        }
+                        .foregroundStyle(.blue)
+                    } else {
+                        Button("Add Node") {
+                            viewModel.addNode(
+                                childId: childId,
+                                parentId: parentId.isEmpty ? nil : parentId,
+                                value1: value1,
+                                value2: value2
+                            )
+                            
+                            showSuccess = true
+                            isPaused = true
+                            
+                            // Pause for 2 seconds before allowing next action
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                isPaused = false
+                            }
+                        }
+                        .foregroundStyle(.blue)
+                        .disabled(childId.isEmpty)
+                    }
+                }
+            }
+            .padding(16)
+            .background(Color(.controlBackgroundColor))
+            .cornerRadius(12)
+            .padding(16)
+            .frame(minWidth: 400, minHeight: 300)
+            #else
             VStack(spacing: 12) {
                 Text("Add Node")
                     .font(.headline)
@@ -112,6 +208,7 @@ struct NodeFormView: View {
             .background(Color.white)
             .cornerRadius(12)
             .padding(16)
+            #endif
         }
     }
     
